@@ -1,0 +1,6 @@
+{
+  "name": "Streak & Countdown",
+  "description": "Minimalist, offline-first streak tracking and countdown Android application with native home-screen widgets, Room persistence, and accurate timeline analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
