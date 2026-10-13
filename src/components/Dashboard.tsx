@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Calendar,
   CheckCircle2,
   Clock,
   Flame,
   Plus,
-  AlertTriangle,
   ChevronRight,
-  Archive,
   Search,
 } from 'lucide-react';
 import { CheckIn, Goal } from '../types';
@@ -34,279 +32,341 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [filter, setFilter] = useState<'active' | 'archived'>('active');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredGoals = goals.filter((g) => {
-    const matchesFilter = filter === 'active' ? !g.archived : g.archived;
-    const matchesSearch =
-      g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (g.description && g.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesFilter && matchesSearch;
-  });
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
-  // Aggregate stats across active goals
-  const activeGoals = goals.filter((g) => !g.archived);
-  let checkedTodayCount = 0;
-  let maxStreak = 0;
+  const activeGoals = useMemo(
+    () => goals.filter((goal) => !goal.archived),
+    [goals]
+  );
 
-  activeGoals.forEach((g) => {
-    const m = calculateGoalMetrics(g, checkIns, todayDate);
-    if (m.isCheckedInToday) checkedTodayCount++;
-    if (m.currentStreak > maxStreak) maxStreak = m.currentStreak;
-  });
+  const filteredGoals = useMemo(() => {
+    return goals.filter((goal) => {
+      const matchesFilter =
+        filter === 'active' ? !goal.archived : goal.archived;
+
+      const matchesSearch =
+        normalizedSearchQuery.length === 0 ||
+        goal.name.toLowerCase().includes(normalizedSearchQuery) ||
+        Boolean(
+          goal.description
+            ?.toLowerCase()
+            .includes(normalizedSearchQuery)
+        );
+
+      return matchesFilter && matchesSearch;
+    });
+  }, [filter, goals, normalizedSearchQuery]);
+
+  const summary = useMemo(() => {
+    let checkedTodayCount = 0;
+    let maxStreak = 0;
+
+    activeGoals.forEach((goal) => {
+      const metrics = calculateGoalMetrics(goal, checkIns, todayDate);
+
+      if (metrics.isCheckedInToday) {
+        checkedTodayCount += 1;
+      }
+
+      if (metrics.currentStreak > maxStreak) {
+        maxStreak = metrics.currentStreak;
+      }
+    });
+
+    return {
+      checkedTodayCount,
+      maxStreak,
+    };
+  }, [activeGoals, checkIns, todayDate]);
+
+  const archivedGoalsCount = goals.length - activeGoals.length;
+  const pendingTodayCount = Math.max(
+    activeGoals.length - summary.checkedTodayCount,
+    0
+  );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      {/* KPI Summary strip */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-0.5">
+    <div className="w-full min-w-0 max-w-6xl mx-auto overflow-x-hidden px-4 py-4 sm:px-6 sm:py-6 space-y-6">
+      <div className="grid min-w-0 grid-cols-1 gap-3 min-[380px]:grid-cols-3 sm:gap-4">
+        <div className="min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+          <span className="block mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Active Goals
           </span>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">
             {activeGoals.length}
           </div>
-          <span className="text-xs text-slate-500 block mt-0.5">
+          <span className="block mt-0.5 text-xs text-slate-500 break-words">
             Independent events tracked
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-0.5">
+        <div className="min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+          <span className="block mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Today Checked In
           </span>
           <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {checkedTodayCount}{' '}
-            <span className="text-xs font-normal text-slate-500">/ {activeGoals.length}</span>
+            {summary.checkedTodayCount}{' '}
+            <span className="text-xs font-normal text-slate-500">
+              / {activeGoals.length}
+            </span>
           </div>
-          <span className="text-xs text-slate-500 block mt-0.5">
-            {checkedTodayCount === activeGoals.length && activeGoals.length > 0
+          <span className="block mt-0.5 text-xs text-slate-500 break-words">
+            {summary.checkedTodayCount === activeGoals.length &&
+            activeGoals.length > 0
               ? 'All daily goals complete!'
-              : `${activeGoals.length - checkedTodayCount} pending today`}
+              : `${pendingTodayCount} pending today`}
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-0.5">
+        <div className="min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+          <span className="block mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Highest Streak
           </span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-amber-500 tabular-nums flex items-center gap-1">
-            <span>{maxStreak}</span>
+          <div className="flex items-center gap-1 text-2xl sm:text-3xl font-extrabold text-amber-500 tabular-nums">
+            <span>{summary.maxStreak}</span>
             <Flame className="w-5 h-5 text-amber-500 fill-amber-500/30" />
           </div>
-          <span className="text-xs text-slate-500 block mt-0.5">
+          <span className="block mt-0.5 text-xs text-slate-500 break-words">
             Consecutive calendar days
           </span>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Functional segmented buttons */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl w-fit">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid w-full grid-cols-2 gap-1 rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800/80 sm:w-auto">
           <button
+            type="button"
             onClick={() => setFilter('active')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
+            className={`min-w-0 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
               filter === 'active'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            Active Goals ({activeGoals.length})
+            <span className="block truncate">
+              Active ({activeGoals.length})
+            </span>
           </button>
+
           <button
+            type="button"
             onClick={() => setFilter('archived')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
+            className={`min-w-0 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
               filter === 'archived'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            Archived ({goals.length - activeGoals.length})
+            <span className="block truncate">
+              Archived ({archivedGoalsCount})
+            </span>
           </button>
         </div>
 
-        {/* Search input */}
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="relative w-full min-w-0 sm:w-64">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
-            type="text"
+            type="search"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search goals..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Search goals"
+            className="w-full min-w-0 rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:text-sm"
           />
         </div>
       </div>
 
-      {/* Goal Cards Grid */}
       {filteredGoals.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center mb-3">
-            <Flame className="w-6 h-6" />
+        <div className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-900 sm:p-10">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+            <Flame className="h-6 w-6" />
           </div>
-          <h3 className="font-bold text-base text-slate-900 dark:text-white">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">
             {filter === 'active' ? 'No active goals' : 'No archived goals'}
           </h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-5">
-            {filter === 'active'
-              ? 'Create your first goal with a target date to begin tracking streaks and countdowns.'
-              : 'Goals you archive will appear here for safe keeping.'}
+          <p className="mx-auto mb-5 mt-1 max-w-sm text-xs text-slate-500">
+            {normalizedSearchQuery
+              ? 'No goals match your search.'
+              : filter === 'active'
+                ? 'Create your first goal with a target date to begin tracking streaks and countdowns.'
+                : 'Goals you archive will appear here.'}
           </p>
-          {filter === 'active' && (
+
+          {filter === 'active' && !normalizedSearchQuery && (
             <button
+              type="button"
               onClick={onNewGoal}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm inline-flex items-center gap-1.5"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-500"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4" />
               <span>Create Goal</span>
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredGoals.map((goal) => {
-            const metrics = calculateGoalMetrics(goal, checkIns, todayDate);
+            const metrics = calculateGoalMetrics(
+              goal,
+              checkIns,
+              todayDate
+            );
 
-            // Countdown color
             const countdownColor =
               metrics.currentCountdown.status === 'overdue'
                 ? 'text-rose-600 dark:text-rose-400'
                 : metrics.currentCountdown.status === 'today'
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-blue-600 dark:text-blue-400';
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-blue-600 dark:text-blue-400';
 
-            // Streak badge & border color
-            const streakBg =
+            const streakStyles =
               metrics.streakStatus === 'active'
                 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
                 : metrics.streakStatus === 'pending'
-                ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-                : metrics.streakStatus === 'broken'
-                ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
-                : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700';
+                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                  : metrics.streakStatus === 'broken'
+                    ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700';
 
             return (
-              <div
+              <article
                 key={goal.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+                className="flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900 sm:p-5"
               >
-                <div>
-                  {/* Card Top: Target Date & Status */}
-                  <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                      <span>{formatDisplayDate(goal.targetDate)}</span>
+                <div className="min-w-0">
+                  <div className="mb-2 flex min-w-0 items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                      <span className="truncate">
+                        {formatDisplayDate(goal.targetDate)}
+                      </span>
                     </div>
 
-                    {/* Streak pill state */}
                     <div
-                      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border flex items-center gap-1 ${streakBg}`}
+                      className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${streakStyles}`}
                     >
-                      <Flame className="w-3 h-3 fill-current" />
-                      <span>{metrics.currentStreak}d streak</span>
+                      <Flame className="h-3 w-3 fill-current" />
+                      <span>{metrics.currentStreak}d</span>
                     </div>
                   </div>
 
-                  {/* Goal Name */}
                   <button
+                    type="button"
                     onClick={() => onSelectGoal(goal.id)}
-                    className="text-left group block w-full"
+                    className="group block w-full min-w-0 text-left"
                   >
-                    <h3 className="font-bold text-base text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-1">
+                    <h3 className="truncate text-base font-bold text-slate-900 transition-colors group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
                       {goal.name}
                     </h3>
+
                     {goal.description && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
+                      <p className="mt-1 line-clamp-2 break-words text-xs text-slate-500 dark:text-slate-400">
                         {goal.description}
                       </p>
                     )}
                   </button>
 
-                  {/* Large Countdown Display */}
-                  <div
+                  <button
+                    type="button"
                     onClick={() => onSelectGoal(goal.id)}
-                    className="cursor-pointer my-4 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between"
+                    className="my-4 flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3.5 text-left dark:border-slate-800/80 dark:bg-slate-800/50"
                   >
-                    <div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                         Countdown
                       </span>
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      <span className="block truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
                         {metrics.currentCountdown.displayText}
                       </span>
-                    </div>
-                    <div className={`text-3xl font-black tabular-nums tracking-tight ${countdownColor}`}>
-                      {metrics.currentCountdown.status === 'today' ? 'Today' : metrics.currentCountdown.days}
-                    </div>
-                  </div>
+                    </span>
 
-                  {/* Meta Indicators: Today status, Last checkin, Missed days */}
-                  <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400 pt-1">
-                    {/* Today Status */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Today's Check-in:</span>
+                    <span
+                      className={`shrink-0 text-2xl font-black tabular-nums tracking-tight sm:text-3xl ${countdownColor}`}
+                    >
+                      {metrics.currentCountdown.status === 'today'
+                        ? 'Today'
+                        : metrics.currentCountdown.days}
+                    </span>
+                  </button>
+
+                  <div className="space-y-2 pt-1 text-xs text-slate-600 dark:text-slate-400">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <span className="shrink-0 text-slate-400">
+                        Today's Check-in:
+                      </span>
+
                       {metrics.isCheckedInToday ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Checked In
+                        <span className="flex min-w-0 items-center gap-1 truncate font-semibold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">Checked In</span>
                         </span>
                       ) : (
-                        <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          Pending
+                        <span className="flex min-w-0 items-center gap-1 truncate font-medium text-amber-600 dark:text-amber-400">
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">Pending</span>
                         </span>
                       )}
                     </div>
 
-                    {/* Last Check-in Date */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Last Check-in:</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300">
-                        {metrics.lastCheckInDate ? formatDisplayDate(metrics.lastCheckInDate) : 'None yet'}
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <span className="shrink-0 text-slate-400">
+                        Last Check-in:
+                      </span>
+                      <span className="min-w-0 truncate text-right font-medium text-slate-700 dark:text-slate-300">
+                        {metrics.lastCheckInDate
+                          ? formatDisplayDate(metrics.lastCheckInDate)
+                          : 'None yet'}
                       </span>
                     </div>
 
-                    {/* Missed-day indicator */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Completed Missed:</span>
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <span className="shrink-0 text-slate-400">
+                        Completed Missed:
+                      </span>
                       <span
-                        className={`font-semibold tabular-nums ${
+                        className={`min-w-0 truncate text-right font-semibold tabular-nums ${
                           metrics.completedMissedDaysCount > 0
                             ? 'text-amber-600 dark:text-amber-400'
                             : 'text-slate-600 dark:text-slate-400'
                         }`}
                       >
-                        {metrics.completedMissedDaysCount} {metrics.completedMissedDaysCount === 1 ? 'day' : 'days'}
+                        {metrics.completedMissedDaysCount}{' '}
+                        {metrics.completedMissedDaysCount === 1
+                          ? 'day'
+                          : 'days'}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Card Actions Footer */}
-                <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                <div className="mt-5 flex min-w-0 items-center gap-2 border-t border-slate-100 pt-3.5 dark:border-slate-800">
                   {!metrics.isCheckedInToday ? (
                     <button
+                      type="button"
                       onClick={() => onCheckIn(goal.id)}
-                      className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+                      className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-xs transition-all hover:bg-emerald-500 active:scale-[0.98]"
                     >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Check In</span>
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span className="truncate">Check In</span>
                     </button>
                   ) : (
-                    <div className="flex-1 py-2 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center justify-center gap-1.5 border border-emerald-200/50 dark:border-emerald-800/50">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Checked In Today</span>
+                    <div className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-200/50 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span className="truncate">Checked In Today</span>
                     </div>
                   )}
 
                   <button
+                    type="button"
                     onClick={() => onSelectGoal(goal.id)}
-                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                     title="View details and timeline"
+                    aria-label={`View ${goal.name} details`}
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
