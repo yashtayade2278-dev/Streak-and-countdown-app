@@ -1,2 +1,140 @@
-import React,{useCallback,useEffect,useMemo,useState}from'react';import{Plus}from'lucide-react';import{Header}from'./components/Header';import{Dashboard}from'./components/Dashboard';import{GoalDetailView}from'./components/GoalDetailView';import{GoalModal}from'./components/GoalModal';import{CheckInModal}from'./components/CheckInModal';import{storage}from'./lib/storage';import{androidBridge}from'./lib/androidBridge';import{getTodayLocalDate}from'./lib/dateUtils';import{CheckIn,Goal}from'./types';
-export default function App(){const[goals,setGoals]=useState<Goal[]>(()=>storage.getGoals());const[checkIns,setCheckIns]=useState<CheckIn[]>(()=>storage.getCheckIns());const[selected,setSelected]=useState<string|null>(null);const[modal,setModal]=useState(false);const[editing,setEditing]=useState<Goal|null>(null);const[checkGoal,setCheckGoal]=useState<string|null>(null);const today=useMemo(()=>getTodayLocalDate(0),[]);useEffect(()=>storage.subscribe(()=>{setGoals(storage.getGoals());setCheckIns(storage.getCheckIns())}),[]);useEffect(()=>{const q=matchMedia('(prefers-color-scheme: dark)');const f=()=>document.documentElement.classList.toggle('dark',q.matches);f();q.addEventListener('change',f);return()=>q.removeEventListener('change',f)},[]);const goal=goals.find(g=>g.id===selected)||null;const target=goals.find(g=>g.id===checkGoal)||null;const add=useCallback((id:string,note?:string)=>{try{const c=storage.addCheckIn(id,today,note);androidBridge.syncCheckIn(c);androidBridge.refreshWidgets();setCheckGoal(null)}catch(e){alert(e instanceof Error?e.message:String(e))}},[today]);const save=(data:{name:string;description?:string;targetDate:string;reminderEnabled:boolean;reminderTime?:string;colorScheme?:Goal['colorScheme']})=>{const g=editing?storage.updateGoal(editing.id,data):storage.createGoal(data);androidBridge.syncGoal(g);androidBridge.refreshWidgets();setModal(false);setEditing(null)};const del=(id:string)=>{storage.deleteGoal(id);androidBridge.deleteGoal(id);setSelected(null)};return <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white"><Header activeGoalsCount={goals.filter(g=>!g.archived).length} onHome={()=>setSelected(null)}/>{goal?<GoalDetailView goal={goal} checkIns={checkIns} todayDate={today} onBack={()=>setSelected(null)} onCheckIn={setCheckGoal} onEdit={g=>{setEditing(g);setModal(true)}} onToggleArchive={id=>{const g=storage.toggleArchiveGoal(id);androidBridge.syncGoal(g)}} onDelete={del} onAddWidget={androidBridge.pinGoalWidget}/>:<Dashboard goals={goals} checkIns={checkIns} todayDate={today} onSelectGoal={setSelected} onCheckIn={setCheckGoal} onAddWidget={androidBridge.pinGoalWidget}/>} {!goal&&<button onClick={()=>{setEditing(null);setModal(true)}} className="fixed bottom-[calc(22px+env(safe-area-inset-bottom))] right-5 z-30 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl" aria-label="Create goal"><Plus className="h-8 w-8"/></button>}<GoalModal goal={editing} isOpen={modal} onClose={()=>{setModal(false);setEditing(null)}} onSave={save}/>{target&&<CheckInModal goal={target} todayDate={today} isOpen onClose={()=>setCheckGoal(null)} onConfirm={note=>add(target.id,note)}/>}</div>}
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
+import { Header } from "./components/Header";
+import { Dashboard } from "./components/Dashboard";
+import { GoalDetailView } from "./components/GoalDetailView";
+import { GoalModal } from "./components/GoalModal";
+import { CheckInModal } from "./components/CheckInModal";
+import { storage } from "./lib/storage";
+import { androidBridge } from "./lib/androidBridge";
+import { getTodayLocalDate } from "./lib/dateUtils";
+import { CheckIn, Goal } from "./types";
+export default function App() {
+  const [goals, setGoals] = useState<Goal[]>(() => storage.getGoals());
+  const [checkIns, setCheckIns] = useState<CheckIn[]>(() =>
+    storage.getCheckIns(),
+  );
+  const [selected, setSelected] = useState<string | null>(null);
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState<Goal | null>(null);
+  const [checkGoal, setCheckGoal] = useState<string | null>(null);
+  const today = useMemo(() => getTodayLocalDate(0), []);
+  useEffect(
+    () =>
+      storage.subscribe(() => {
+        setGoals(storage.getGoals());
+        setCheckIns(storage.getCheckIns());
+      }),
+    [],
+  );
+  useEffect(() => {
+    const q = matchMedia("(prefers-color-scheme: dark)");
+    const f = () =>
+      document.documentElement.classList.toggle("dark", q.matches);
+    f();
+    q.addEventListener("change", f);
+    return () => q.removeEventListener("change", f);
+  }, []);
+  const goal = goals.find((g) => g.id === selected) || null;
+  const target = goals.find((g) => g.id === checkGoal) || null;
+  const add = useCallback(
+    (id: string, note?: string) => {
+      try {
+        const c = storage.addCheckIn(id, today, note);
+        androidBridge.syncCheckIn(c);
+        androidBridge.refreshWidgets();
+        setCheckGoal(null);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [today],
+  );
+  const save = (data: {
+    name: string;
+    description?: string;
+    targetDate: string;
+    reminderEnabled: boolean;
+    reminderTime?: string;
+    colorScheme?: Goal["colorScheme"];
+  }) => {
+    const g = editing
+      ? storage.updateGoal(editing.id, data)
+      : storage.createGoal(data);
+    androidBridge.syncGoal(g);
+    androidBridge.refreshWidgets();
+    setModal(false);
+    setEditing(null);
+  };
+  const del = (id: string) => {
+    storage.deleteGoal(id);
+    androidBridge.deleteGoal(id);
+    setSelected(null);
+  };
+  return (
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
+      <Header
+        activeGoalsCount={goals.filter((g) => !g.archived).length}
+        onHome={() => setSelected(null)}
+      />
+      {goal ? (
+        <GoalDetailView
+          goal={goal}
+          checkIns={checkIns}
+          todayDate={today}
+          onBack={() => setSelected(null)}
+          onCheckIn={setCheckGoal}
+          onEdit={(g) => {
+            setEditing(g);
+            setModal(true);
+          }}
+          onToggleArchive={(id) => {
+            const g = storage.toggleArchiveGoal(id);
+            androidBridge.syncGoal(g);
+          }}
+          onDelete={del}
+          onAddWidget={androidBridge.pinGoalWidget}
+        />
+      ) : (
+        <Dashboard
+          goals={goals}
+          checkIns={checkIns}
+          todayDate={today}
+          onSelectGoal={setSelected}
+          onCheckIn={setCheckGoal}
+          onAddWidget={androidBridge.pinGoalWidget}
+        />
+      )}{" "}
+      {!goal && (
+        <button
+          onClick={() => {
+            setEditing(null);
+            setModal(true);
+          }}
+          className="fixed bottom-[calc(22px+env(safe-area-inset-bottom))] right-5 z-30 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl"
+          aria-label="Create goal"
+        >
+          <Plus className="h-8 w-8" />
+        </button>
+      )}
+      <GoalModal
+        goal={editing}
+        isOpen={modal}
+        onClose={() => {
+          setModal(false);
+          setEditing(null);
+        }}
+        onSave={save}
+      />
+      {target && (
+        <CheckInModal
+          goal={target}
+          todayDate={today}
+          isOpen
+          onClose={() => setCheckGoal(null)}
+          onConfirm={(note) => add(target.id, note)}
+        />
+      )}
+    </div>
+  );
+}
