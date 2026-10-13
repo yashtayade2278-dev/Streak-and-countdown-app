@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  Plus,
-  Flame,
-  Settings as SettingsIcon,
-  ListChecks,
-} from 'lucide-react';
+import { Flame, Plus, Settings as SettingsIcon, ListChecks } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'dashboard' | 'settings';
@@ -20,68 +15,44 @@ export const Header: React.FC<HeaderProps> = ({
   activeGoalsCount,
 }) => {
   return (
-    <header className="sticky top-0 z-30 w-full max-w-full overflow-hidden bg-slate-900/95 text-slate-100 backdrop-blur-md border-b border-slate-800">
-      <div className="w-full min-w-0 h-16 px-3 sm:px-6 flex items-center gap-2">
+    <header className="sticky top-0 z-30 w-full border-b border-slate-200 bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+      <div className="flex h-16 w-full items-center gap-3 px-4">
         <button
           type="button"
           onClick={() => setActiveTab('dashboard')}
-          className="min-w-0 flex-1 flex items-center gap-2 text-left"
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
           aria-label="Open goals"
         >
-          <span className="w-9 h-9 shrink-0 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white">
-            <Flame className="w-5 h-5 text-amber-300 fill-amber-300/30" />
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white">
+            <Flame className="h-6 w-6" />
           </span>
-
           <span className="min-w-0">
-            <span className="block truncate text-sm font-bold text-white">
+            <span className="block truncate text-lg font-extrabold leading-tight text-slate-950 dark:text-white">
               Streak &amp; Countdown
             </span>
-
-            <span className="block text-[10px] text-slate-400">
-              {activeGoalsCount} active
+            <span className="block text-sm text-slate-500 dark:text-slate-400">
+              {activeGoalsCount} active {activeGoalsCount === 1 ? 'goal' : 'goals'}
             </span>
           </span>
         </button>
 
-        <nav className="shrink-0 flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-              activeTab === 'dashboard'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-            }`}
-            aria-label="Goals"
-            title="Goals"
-          >
-            <ListChecks className="w-5 h-5" />
-          </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab(activeTab === 'settings' ? 'dashboard' : 'settings')}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          aria-label={activeTab === 'settings' ? 'Open goals' : 'Open settings'}
+        >
+          {activeTab === 'settings' ? <ListChecks className="h-5 w-5" /> : <SettingsIcon className="h-5 w-5" />}
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-              activeTab === 'settings'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-            }`}
-            aria-label="Settings"
-            title="Settings"
-          >
-            <SettingsIcon className="w-5 h-5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={onNewGoal}
-            className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors"
-            aria-label="Create new goal"
-            title="New goal"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        </nav>
+        <button
+          type="button"
+          onClick={onNewGoal}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white"
+          aria-label="Create goal"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
       </div>
     </header>
   );
