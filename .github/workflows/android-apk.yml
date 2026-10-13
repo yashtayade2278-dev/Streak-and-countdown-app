@@ -1,56 +1,78 @@
-name: Build Streak Countdown APK
+name: Build Android APK
 
 on:
   workflow_dispatch:
+
   push:
     branches:
       - main
+      - master
 
 jobs:
-  build:
+  build-apk:
+    name: Build Debug APK
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - name: Build frontend
+        run: bun run build
+
+      - name: Verify frontend build
+        run: |
+          test -f dist/index.html
+          echo "Frontend build completed successfully."
+
+      - name: Copy frontend into Android assets
+        run: |
+          rm -rf android/app/src/main/assets/www
+          mkdir -p android/app/src/main/assets/www
+          cp -R dist/. android/app/src/main/assets/www/
+
+      - name: Verify Android web assets
+        run: |
+          test -f android/app/src/main/assets/www/index.html
+          echo "Frontend copied into Android assets successfully."
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
+          cache: gradle
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install web dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build React interface
-        run: bun run build
-
-      - name: Package web interface into Android
-        run: |
-          mkdir -p android/app/src/main/assets/www
-          cp -r dist/. android/app/src/main/assets/www/
-
-      - name: Set up Gradle 8.7
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
+
+      - name: Make Gradle wrapper executable
+        working-directory: android
+        run: chmod +x gradlew
 
       - name: Build debug APK
-        run: gradle --no-daemon -p android assembleDebug
+        working-directory: android
+        run: ./gradlew clean assembleDebug --stacktrace
+
+      - name: Locate generated APK
+        run: |
+          find android/app/build/outputs/apk -type f -name "*.apk" -print
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: streak-countdown-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
