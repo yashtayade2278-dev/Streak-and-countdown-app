@@ -1,0 +1,7 @@
+
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Streak &amp; Countdown</string>
+    <string name="widget_compact_name">Streak Compact</string>
+    <string name="widget_large_name">Streak Large</string>
+</resources>
