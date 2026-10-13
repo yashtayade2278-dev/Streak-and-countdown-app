@@ -2,41 +2,68 @@ package com.streakandcountdown.app.ui
 
 import android.app.Activity
 import android.os.Bundle
-import android.graphics.Color
-import android.view.Gravity
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.view.View
+import android.view.WindowManager
 
 class MainActivity : Activity() {
 
+    private lateinit var webView: WebView
+
+    @Suppress("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(32, 32, 32, 32)
-            setBackgroundColor(Color.rgb(248, 249, 252))
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        )
+
+        webView = WebView(this)
+
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
         }
 
-        val title = TextView(this).apply {
-            text = "Streak & Countdown"
-            textSize = 28f
-            setTextColor(Color.rgb(35, 45, 70))
-            gravity = Gravity.CENTER
+        webView.webViewClient = WebViewClient()
+        webView.webChromeClient = WebChromeClient()
+
+        webView.setBackgroundColor(android.graphics.Color.WHITE)
+        webView.overScrollMode = View.OVER_SCROLL_NEVER
+
+        setContentView(webView)
+
+        if (savedInstanceState == null) {
+            webView.loadUrl(
+                "file:///android_asset/www/index.html"
+            )
+        } else {
+            webView.restoreState(savedInstanceState)
         }
+    }
 
-        val message = TextView(this).apply {
-            text = "Your app is installed and running!"
-            textSize = 16f
-            setTextColor(Color.DKGRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, 24, 0, 0)
+    override fun onSaveInstanceState(outState: Bundle) {
+        webView.saveState(outState)
+        super.onSaveInstanceState(outState)
+    }
+
+    @Deprecated("Deprecated in Android API 33")
+    override fun onBackPressed() {
+        if (::webView.isInitialized && webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
         }
+    }
 
-        root.addView(title)
-        root.addView(message)
-
-        setContentView(root)
+    override fun onDestroy() {
+        if (::webView.isInitialized) {
+            webView.destroy()
+        }
+        super.onDestroy()
     }
 }
