@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react';
 import {
   Settings as SettingsIcon,
   Bell,
-  Moon,
   Download,
   Upload,
   Shield,
@@ -132,7 +131,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </h1>
         </div>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Configure application preferences and manage your local data.
+          Reminders and backup.
         </p>
       </div>
 
@@ -214,30 +213,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         )}
       </section>
 
-      <section className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-xs dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-        <h2 className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-          <Moon className="h-4 w-4 shrink-0 text-blue-500" />
-          <span>Appearance</span>
-        </h2>
-
-        <div className="grid grid-cols-3 gap-2 pt-1">
-          {(['system', 'light', 'dark'] as const).map((theme) => (
-            <button
-              key={theme}
-              type="button"
-              onClick={() => onUpdateSettings({ theme })}
-              className={`min-h-11 min-w-0 rounded-xl px-3 py-2 font-semibold capitalize transition-colors ${
-                settings.theme === theme
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white'
-              }`}
-              aria-pressed={settings.theme === theme}
-            >
-              <span className="block truncate">{theme}</span>
-            </button>
-          ))}
-        </div>
-      </section>
 
       <section className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-xs dark:border-slate-800 dark:bg-slate-900 sm:p-5">
         <div className="min-w-0">
@@ -245,7 +220,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             Data Backup
           </h2>
           <p className="mt-0.5 break-words text-[11px] text-slate-500 dark:text-slate-400">
-            Export or restore your goals, check-ins, notes, settings, and widget mappings.
+            Export or restore your goals and check-ins.
           </p>
         </div>
 
@@ -278,15 +253,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </section>
 
-      <section className="min-w-0 space-y-2 rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-xs dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-        <div className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-          <Shield className="h-4 w-4 shrink-0 text-emerald-500" />
-          <span>Local Data</span>
-        </div>
-        <p className="break-words text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
-          Goals, check-ins, notes, preferences, and widget mappings are stored locally on this device. Use Export Backup before clearing app data or uninstalling the application.
-        </p>
-      </section>
     </div>
   );
 };
