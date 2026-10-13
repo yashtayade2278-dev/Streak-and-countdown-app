@@ -5,30 +5,32 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Header } from './components/Header';
-import { DateTravelBanner } from './components/DateTravelBanner';
 import { Dashboard } from './components/Dashboard';
 import { GoalDetailView } from './components/GoalDetailView';
 import { GoalModal } from './components/GoalModal';
 import { CheckInModal } from './components/CheckInModal';
-import { WidgetSimulator } from './components/WidgetSimulator';
-import { TestRunnerView } from './components/TestRunnerView';
 import { SettingsView } from './components/SettingsView';
 import { storage } from './lib/storage';
 import { getTodayLocalDate } from './lib/dateUtils';
-import { Goal, CheckIn, WidgetInstance, AppSettings } from './types';
+import { Goal, CheckIn, AppSettings } from './types';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'widgets' | 'tests' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings'>(
+    'dashboard'
+  );
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
 
   // Storage state
   const [goals, setGoals] = useState<Goal[]>(() => storage.getGoals());
-  const [checkIns, setCheckIns] = useState<CheckIn[]>(() => storage.getCheckIns());
-  const [widgets, setWidgets] = useState<WidgetInstance[]>(() => storage.getWidgets());
-  const [settings, setSettings] = useState<AppSettings>(() => storage.getSettings());
+  const [checkIns, setCheckIns] = useState<CheckIn[]>(() =>
+    storage.getCheckIns()
+  );
+  const [settings, setSettings] = useState<AppSettings>(() =>
+    storage.getSettings()
+  );
 
-  // Modals state
+  // Modal state
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [checkInGoalId, setCheckInGoalId] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export default function App() {
 
   const showNotification = useCallback((message: string) => {
     setNotification(message);
-    setTimeout(() => setNotification(null), 3500);
+    window.setTimeout(() => setNotification(null), 3500);
   }, []);
 
   // Subscribe to storage changes
@@ -46,67 +48,72 @@ export default function App() {
     const unsubscribe = storage.subscribe(() => {
       setGoals(storage.getGoals());
       setCheckIns(storage.getCheckIns());
-      setWidgets(storage.getWidgets());
       setSettings(storage.getSettings());
     });
+
     return unsubscribe;
   }, []);
 
-  // Today's local date based on simulated offset
-  const todayDate = useMemo(() => {
-    return getTodayLocalDate(settings.simulatedDateOffsetDays);
-  }, [settings.simulatedDateOffsetDays]);
+  // Always use the actual local date in production.
+  const todayDate = useMemo(() => getTodayLocalDate(0), []);
 
   // Sync dark mode class
   useEffect(() => {
     const root = document.documentElement;
+
     if (settings.theme === 'dark') {
       root.classList.add('dark');
-    } else if (settings.theme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      // System
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (prefersDark) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
+      return;
     }
+
+    if (settings.theme === 'light') {
+      root.classList.remove('dark');
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const syncSystemTheme = () => {
+      root.classList.toggle('dark', mediaQuery.matches);
+    };
+
+    syncSystemTheme();
+    mediaQuery.addEventListener('change', syncSystemTheme);
+
+    return () => {
+      mediaQuery.removeEventListener('change', syncSystemTheme);
+    };
   }, [settings.theme]);
 
   // Selected goal object
   const selectedGoal = useMemo(() => {
     if (!selectedGoalId) return null;
-    return goals.find((g) => g.id === selectedGoalId) || null;
+    return goals.find((goal) => goal.id === selectedGoalId) || null;
   }, [goals, selectedGoalId]);
 
   // Check-in target goal object
   const targetCheckInGoal = useMemo(() => {
     if (!checkInGoalId) return null;
-    return goals.find((g) => g.id === checkInGoalId) || null;
+    return goals.find((goal) => goal.id === checkInGoalId) || null;
   }, [goals, checkInGoalId]);
 
   // Check-in action handler
   const handlePerformCheckIn = (goalId: string, note?: string) => {
     try {
-      const checkIn = storage.addCheckIn(goalId, todayDate, note);
-      // "Confirm success only after saving."
-      const g = goals.find((item) => item.id === goalId);
-      showNotification(`Check-in recorded for "${g?.name || 'Goal'}"!`);
+      storage.addCheckIn(goalId, todayDate, note);
+
+      const goal = goals.find((item) => item.id === goalId);
+      showNotification(
+        `Check-in recorded for "${goal?.name || 'Goal'}"!`
+      );
       setCheckInGoalId(null);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      alert(msg);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      window.alert(message);
     }
   };
 
-  // Direct widget check-in
-  const handleWidgetCheckIn = (goalId: string) => {
-    handlePerformCheckIn(goalId, 'Widget Quick Check-in');
-  };
-
-  // Save Goal (create or edit)
+  // Save a goal, either by creating it or updating it.
   const handleSaveGoal = (data: {
     name: string;
     description?: string;
@@ -122,54 +129,49 @@ export default function App() {
       const created = storage.createGoal(data);
       showNotification(`New goal "${created.name}" established!`);
     }
+
     setIsGoalModalOpen(false);
     setEditingGoal(null);
   };
 
-  // Archive toggle
+  // Archive or restore a goal.
   const handleToggleArchive = (goalId: string) => {
     const updated = storage.toggleArchiveGoal(goalId);
+
     showNotification(
       updated.archived
-        ? `Goal archived.`
-        : `Goal restored to active dashboard.`
+        ? 'Goal archived.'
+        : 'Goal restored to active dashboard.'
     );
   };
 
-  // Delete goal
+  // Delete a goal.
   const handleDeleteGoal = (goalId: string) => {
-    const g = goals.find((item) => item.id === goalId);
+    const goal = goals.find((item) => item.id === goalId);
+
     storage.deleteGoal(goalId);
-    showNotification(`Goal "${g?.name || ''}" deleted.`);
+    showNotification(`Goal "${goal?.name || ''}" deleted.`);
     setSelectedGoalId(null);
   };
 
+  const openNewGoalModal = () => {
+    setEditingGoal(null);
+    setIsGoalModalOpen(true);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white flex flex-col">
-      {/* Top Header */}
+    <div className="min-h-screen w-full min-w-0 max-w-full overflow-x-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white flex flex-col">
       <Header
         activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab);
           setSelectedGoalId(null);
         }}
-        onNewGoal={() => {
-          setEditingGoal(null);
-          setIsGoalModalOpen(true);
-        }}
-        activeGoalsCount={goals.filter((g) => !g.archived).length}
+        onNewGoal={openNewGoalModal}
+        activeGoalsCount={goals.filter((goal) => !goal.archived).length}
       />
 
-      {/* Date Simulation & Midnight Crossing Toolbar */}
-      <DateTravelBanner
-        offsetDays={settings.simulatedDateOffsetDays}
-        onSetOffset={(offset) => {
-          storage.saveSettings({ simulatedDateOffsetDays: offset });
-        }}
-      />
-
-      {/* Main Content Viewport */}
-      <main className="flex-1 pb-16">
+      <main className="flex-1 w-full min-w-0 max-w-full overflow-x-hidden pb-16">
         {selectedGoal ? (
           <GoalDetailView
             goal={selectedGoal}
@@ -177,40 +179,14 @@ export default function App() {
             todayDate={todayDate}
             onBack={() => setSelectedGoalId(null)}
             onCheckIn={(id) => setCheckInGoalId(id)}
-            onEdit={(g) => {
-              setEditingGoal(g);
+            onEdit={(goal) => {
+              setEditingGoal(goal);
               setIsGoalModalOpen(true);
             }}
             onToggleArchive={handleToggleArchive}
             onDelete={handleDeleteGoal}
           />
-        ) : activeTab === 'dashboard' ? (
-          <Dashboard
-            goals={goals}
-            checkIns={checkIns}
-            todayDate={todayDate}
-            onSelectGoal={(id) => setSelectedGoalId(id)}
-            onCheckIn={(id) => setCheckInGoalId(id)}
-            onNewGoal={() => {
-              setEditingGoal(null);
-              setIsGoalModalOpen(true);
-            }}
-          />
-        ) : activeTab === 'widgets' ? (
-          <WidgetSimulator
-            goals={goals}
-            checkIns={checkIns}
-            todayDate={todayDate}
-            widgets={widgets}
-            onUpdateWidgetGoal={(appWidgetId, goalId) => {
-              storage.updateWidgetGoal(appWidgetId, goalId);
-            }}
-            onWidgetCheckIn={handleWidgetCheckIn}
-            onSelectGoal={(id) => setSelectedGoalId(id)}
-          />
-        ) : activeTab === 'tests' ? (
-          <TestRunnerView />
-        ) : (
+        ) : activeTab === 'settings' ? (
           <SettingsView
             settings={settings}
             onUpdateSettings={(updates) => storage.saveSettings(updates)}
@@ -219,10 +195,18 @@ export default function App() {
               setCheckIns(storage.getCheckIns());
             }}
           />
+        ) : (
+          <Dashboard
+            goals={goals}
+            checkIns={checkIns}
+            todayDate={todayDate}
+            onSelectGoal={(id) => setSelectedGoalId(id)}
+            onCheckIn={(id) => setCheckInGoalId(id)}
+            onNewGoal={openNewGoalModal}
+          />
         )}
       </main>
 
-      {/* Goal Modal (Create/Edit) */}
       <GoalModal
         goal={editingGoal}
         isOpen={isGoalModalOpen}
@@ -233,22 +217,24 @@ export default function App() {
         onSave={handleSaveGoal}
       />
 
-      {/* Check-in Modal */}
       {targetCheckInGoal && (
         <CheckInModal
           goal={targetCheckInGoal}
           todayDate={todayDate}
           isOpen={Boolean(checkInGoalId)}
           onClose={() => setCheckInGoalId(null)}
-          onConfirm={(note) => handlePerformCheckIn(targetCheckInGoal.id, note)}
+          onConfirm={(note) =>
+            handlePerformCheckIn(targetCheckInGoal.id, note)
+          }
         />
       )}
 
-      {/* Confirmation feedback Toast (confirms only after saving) */}
       {notification && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white border border-slate-700/80 rounded-2xl px-4 py-3 shadow-xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed left-4 right-4 bottom-6 z-50 mx-auto max-w-sm bg-slate-900 text-white border border-slate-700/80 rounded-2xl px-4 py-3 shadow-xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="font-medium">{notification}</span>
+          <span className="min-w-0 break-words font-medium">
+            {notification}
+          </span>
         </div>
       )}
     </div>
