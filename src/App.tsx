@@ -57,20 +57,9 @@ export default function App() {
   // Always use the actual local date in production.
   const todayDate = useMemo(() => getTodayLocalDate(0), []);
 
-  // Sync dark mode class
+  // Always follow the device theme.
   useEffect(() => {
     const root = document.documentElement;
-
-    if (settings.theme === 'dark') {
-      root.classList.add('dark');
-      return;
-    }
-
-    if (settings.theme === 'light') {
-      root.classList.remove('dark');
-      return;
-    }
-
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
     const syncSystemTheme = () => {
@@ -83,7 +72,7 @@ export default function App() {
     return () => {
       mediaQuery.removeEventListener('change', syncSystemTheme);
     };
-  }, [settings.theme]);
+  }, []);
 
   // Selected goal object
   const selectedGoal = useMemo(() => {
